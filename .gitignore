@@ -1,0 +1,24 @@
+# 登录态 (含真实凭证, 切勿提交)
+auth_state.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# 测试 / 工具缓存
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+
+# 测试产物
+*.png
+*.html
+# 调试脚本输出 (探针/批量日志等)
+*_out.txt
+
+# IDE
+.idea/
+.vscode/
