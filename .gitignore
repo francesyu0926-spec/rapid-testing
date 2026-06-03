@@ -18,6 +18,7 @@ venv/
 *.html
 # 调试脚本输出 (探针/批量日志等)
 *_out.txt
+*_out.json
 
 # IDE
 .idea/

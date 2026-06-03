@@ -735,3 +735,63 @@ class ProjectPage:
         self.ensure_quick_check_loaded(attempts=2, timeout=20)
         time.sleep(3)
         return _try()
+
+    # ---------- 快检列表: 任务状态轮询 + 按名进详情 ----------
+    def qc_list_rows(self) -> list:
+        """读快检列表每行的 {name, status}(JS 原子读取, 规避 stale).
+
+        "任务状态"列需与"校验任务状态"列区分: 先精确匹配, 再退化为含"任务状态"且不含"校验".
+        """
+        js = r"""
+        var ths = Array.prototype.map.call(
+            document.querySelectorAll('.ant-table-thead th'),
+            function(t){return (t.innerText||'').replace(/\s/g,'');});
+        function nameIdx(){for(var i=0;i<ths.length;i++){if(ths[i].indexOf('项目名称')>=0)return i;}return 1;}
+        function statusIdx(){
+            for(var i=0;i<ths.length;i++){if(ths[i]==='任务状态')return i;}
+            for(var i=0;i<ths.length;i++){if(ths[i].indexOf('任务状态')>=0 && ths[i].indexOf('校验')<0)return i;}
+            return -1;}
+        var ni=nameIdx(), si=statusIdx(), out=[];
+        Array.prototype.forEach.call(document.querySelectorAll('.ant-table-row'), function(r){
+            var tds=r.querySelectorAll('td');
+            out.push({
+                name: (ni>=0 && tds[ni]) ? (tds[ni].innerText||'').trim() : '',
+                status: (si>=0 && tds[si]) ? (tds[si].innerText||'').trim() : ''
+            });
+        });
+        return out;
+        """
+        try:
+            return self.driver.execute_script(js) or []
+        except Exception:
+            return []
+
+    def enter_quick_check_detail_by_name(self, name: str, timeout: int = 12) -> bool:
+        """点击列表中项目名称匹配的行(其名称列 <a>)进入快检详情."""
+        key = re.sub(r"\s", "", name)[:20]
+        if not key:
+            return False
+        for _ in range(4):
+            for r in self.rows():
+                try:
+                    if key in re.sub(r"\s", "", r.text):
+                        links = r.find_elements(By.CSS_SELECTOR, "td a")
+                        if links:
+                            self.driver.execute_script(
+                                "arguments[0].scrollIntoView({block:'center'});", links[0])
+                            self.driver.execute_script("arguments[0].click();", links[0])
+                            if self._wait_qc_detail(8):
+                                return True
+                except Exception:
+                    continue
+            time.sleep(1)
+        return self.on_quick_check_detail()
+
+    def quick_check_detail_blob(self, settle: float = 4.0) -> str:
+        """详情页全部可见文本(含表格单元格), 供"界面结果 vs 上传文件"做包含性比对."""
+        time.sleep(settle)
+        try:
+            return self.driver.execute_script(
+                "var b=document.body;return b?(b.innerText||''):'';") or ""
+        except Exception:
+            return ""
