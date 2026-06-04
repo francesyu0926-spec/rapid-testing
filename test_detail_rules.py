@@ -41,6 +41,18 @@ def _int(text):
     return int(m.group()) if m else None
 
 
+def _num(text):
+    """解析金额/数值: 去除货币符号/逗号/单位后转 float; 无效或 '-' 返回 None."""
+    if text is None:
+        return None
+    t = text.strip()
+    if t in ("", "-", "—"):
+        return None
+    t = re.sub(r"[,¥￥%\s]", "", t)
+    m = re.search(r"-?\d+(\.\d+)?", t)
+    return float(m.group()) if m else None
+
+
 def _col_index(headers, *names):
     for i, h in enumerate(headers):
         if any(n in h for n in names):
@@ -204,15 +216,129 @@ class TestFilePropertyCollision:
         assert len(tb["rows"]) >= 1
 
 
+class TestPriceRule:
+    """报价规律校验(3.3.10 / 4.3.2.10): 对系统算出的报价对比列做**精确算术重算**.
+
+    快检详情该表列含: 报价(元)/投标人均价(元)/与均价差额(元)/与均价差额百分比(%)/
+    最高限价(元)/与最高价差额(元)/与最高限价占比(%). 这些列之间存在确定的算术关系,
+    单行即可校验(无需多家), 是强 oracle:
+      · 与最高价差额 == 最高限价 - 报价
+      · 与最高限价占比 == 报价/最高限价*100
+      · 与均价差额     == 报价 - 投标人均价
+      · 与均价差额百分比 == (报价-均价)/均价*100
+      · 投标人均价     == 各家报价均值(且各行一致)
+    """
+
+    @staticmethod
+    def _close(a, b, abs_tol, rel_tol=0.0):
+        return abs(a - b) <= max(abs_tol, rel_tol * max(abs(a), abs(b)))
+
+    def test_price_arithmetic_relations(self, quick_check_detail_page):
+        tb = quick_check_detail_page.section_table("报价规律校验")
+        if not tb.get("has_table") or tb.get("empty") or not tb.get("rows"):
+            pytest.skip("报价规律校验暂无数据")
+        h = tb["headers"]
+        i_price = _col_index(h, "报价(元)", "报价")
+        i_avg = _col_index(h, "投标人均价")
+        i_avg_diff = _col_index(h, "与均价差额(元)", "与均价差额")
+        i_avg_pct = _col_index(h, "与均价差额百分比")
+        i_cap = _col_index(h, "最高限价(元)", "最高限价")
+        i_cap_diff = _col_index(h, "与最高价差额(元)", "与最高价差额")
+        i_cap_pct = _col_index(h, "与最高限价占比")
+        if i_price < 0:
+            pytest.skip(f"未识别到报价列, headers={h}")
+
+        def cell(row, idx):
+            return _num(row[idx]) if 0 <= idx < len(row) else None
+
+        prices, avgs, checked = [], [], 0
+        for row in tb["rows"]:
+            price = cell(row, i_price)
+            if price is None:
+                continue
+            assert price >= 0, f"报价为负: {row}"
+            prices.append(price)
+            avg = cell(row, i_avg)
+            if avg is not None:
+                avgs.append(avg)
+
+            cap = cell(row, i_cap)
+            cap_diff = cell(row, i_cap_diff)
+            if cap is not None and cap_diff is not None:
+                assert self._close(cap_diff, cap - price, abs_tol=1.0, rel_tol=1e-4), (
+                    f"与最高价差额 {cap_diff} != 最高限价-报价 {cap - price:.2f}"
+                ); checked += 1
+            cap_pct = cell(row, i_cap_pct)
+            if cap is not None and cap > 0 and cap_pct is not None:
+                assert self._close(cap_pct, price / cap * 100, abs_tol=0.05), (
+                    f"与最高限价占比 {cap_pct} != 报价/最高限价*100 {price / cap * 100:.4f}"
+                ); checked += 1
+            avg_diff = cell(row, i_avg_diff)
+            if avg is not None and avg_diff is not None:
+                assert self._close(avg_diff, price - avg, abs_tol=1.0, rel_tol=1e-4), (
+                    f"与均价差额 {avg_diff} != 报价-均价 {price - avg:.2f}"
+                ); checked += 1
+            avg_pct = cell(row, i_avg_pct)
+            if avg is not None and avg > 0 and avg_pct is not None:
+                assert self._close(avg_pct, (price - avg) / avg * 100, abs_tol=0.05), (
+                    f"与均价差额百分比 {avg_pct} != (报价-均价)/均价*100 {(price - avg) / avg * 100:.4f}"
+                ); checked += 1
+
+        # 投标人均价 == 各家报价均值, 且各行展示一致
+        if avgs and prices:
+            uniq = set(round(a, 2) for a in avgs)
+            assert len(uniq) == 1, f"各行展示的投标人均价不一致: {sorted(uniq)}"
+            computed = sum(prices) / len(prices)
+            assert self._close(avgs[0], computed, abs_tol=1.0, rel_tol=1e-3), (
+                f"投标人均价 {avgs[0]} != 各家报价均值 {computed:.2f}"
+            ); checked += 1
+
+        if checked == 0:
+            pytest.skip("报价对比各列均为占位'-', 无可重算的数值")
+
+
+class TestRecordAudit:
+    """招标备案识别(3.2.2): 一致数量/不一致数量/缺项数量 若有值则应为非负整数(数值不变量).
+
+    实测该表列为 文件类别/文件名称/文件页数/一致数量/不一致数量/缺项数量/操作;
+    未完成比对时计数列为占位'-', 此时跳过(数据依赖)."""
+
+    def test_record_counts_non_negative_int(self, quick_check_detail_page):
+        tb = quick_check_detail_page.section_table("招标备案识别")
+        if not tb.get("has_table") or tb.get("empty") or not tb.get("rows"):
+            pytest.skip("招标备案识别暂无数据")
+        headers = tb["headers"]
+        cols = {c: _col_index(headers, c) for c in ("一致数量", "不一致数量", "缺项数量")}
+        cols = {c: i for c, i in cols.items() if i >= 0}
+        if not cols:
+            pytest.skip(f"未识别到备案识别计数列, headers={headers}")
+        checked = 0
+        # 文件页数(若有)应为正整数 —— 顺带校验该行确为文件记录
+        page_i = _col_index(headers, "文件页数")
+        for row in tb["rows"]:
+            if 0 <= page_i < len(row):
+                pg = _int(row[page_i])
+                if pg is not None:
+                    assert pg >= 0, f"文件页数为负: {row}"
+            for c, i in cols.items():
+                if i < len(row):
+                    v = _int(row[i])
+                    if v is not None:
+                        assert v >= 0, f"{c} 为负: {row}"
+                        checked += 1
+        if checked == 0:
+            pytest.skip("备案识别计数列均为占位'-'(尚未完成一致性比对), 无可校验数值")
+
+
 class TestBidTimeSimilarity:
-    """投标时间相近(4.3.2.11): 若以表格呈现则校验时间格式; 否则按数据依赖 skip."""
+    """投标时间相近(4.3.2.11): 若以表格呈现则校验时间格式; 区块缺失或无数据时按数据/渲染依赖 skip."""
 
     def test_bid_time_present(self, project_detail_page):
-        assert project_detail_page.has_section("投标时间相近"), "详情页缺少'投标时间相近'区块"
+        if not project_detail_page.has_section("投标时间相近"):
+            pytest.skip("当前项目详情未渲染'投标时间相近'区块(区块齐全性见 test_authenticated 用例52)")
         tb = project_detail_page.section_table("投标时间相近")
         if not tb.get("has_table") or tb.get("empty") or not tb.get("rows"):
             pytest.skip("投标时间相近暂无表格数据(该项目无相近时间记录或以非表格呈现)")
-        # 有数据时: 行内若含时间戳应能解析(YYYY-MM-DD HH:MM 或 HH:MM:SS)
         time_pat = re.compile(r"\d{2}:\d{2}(:\d{2})?")
         joined = " ".join(" ".join(r) for r in tb["rows"])
         assert time_pat.search(joined), f"投标时间相近表格未见时间字段: {tb['rows'][:2]}"
