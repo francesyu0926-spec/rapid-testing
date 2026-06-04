@@ -114,8 +114,12 @@ def driver(request):
     options.add_argument("--disable-background-timer-throttling")
     options.add_argument("--disable-renderer-backgrounding")
 
-    # 允许通过环境变量 CHROMEDRIVER 指定驱动, 否则交给 Selenium Manager 自动解析
+    # 驱动解析优先级: 环境变量 CHROMEDRIVER > 本地 drivers/chromedriver.exe > Selenium Manager 自动解析
     override = os.environ.get("CHROMEDRIVER")
+    if not override:
+        local_driver = Path(__file__).resolve().parent / "drivers" / "chromedriver.exe"
+        if local_driver.exists():
+            override = str(local_driver)
     service = Service(override) if override else None
     drv = webdriver.Chrome(service=service, options=options)
 

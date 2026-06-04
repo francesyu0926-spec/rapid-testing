@@ -18,6 +18,7 @@ from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pages.project_page import ProjectPage
@@ -80,7 +81,9 @@ def make_driver():
               "--disable-background-timer-throttling", "--disable-renderer-backgrounding"):
         o.add_argument(a)
     o.page_load_strategy = "eager"
-    d = webdriver.Chrome(options=o)
+    local = Path(__file__).resolve().parent / "drivers" / "chromedriver.exe"
+    svc = Service(str(local)) if local.exists() else None
+    d = webdriver.Chrome(service=svc, options=o)
     d.set_page_load_timeout(40)
     return d
 

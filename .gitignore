@@ -20,6 +20,9 @@ venv/
 *_out.txt
 *_out.json
 
+# 本地 chromedriver (平台相关二进制, 各机器自行下载)
+drivers/
+
 # IDE
 .idea/
 .vscode/

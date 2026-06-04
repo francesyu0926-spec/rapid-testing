@@ -19,10 +19,12 @@ import json
 import re
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pages.project_page import ProjectPage
@@ -41,7 +43,9 @@ def make_driver():
               "--disable-background-timer-throttling", "--disable-renderer-backgrounding"):
         o.add_argument(a)
     o.page_load_strategy = "eager"
-    d = webdriver.Chrome(options=o)
+    local = Path(__file__).resolve().parent / "drivers" / "chromedriver.exe"
+    svc = Service(str(local)) if local.exists() else None
+    d = webdriver.Chrome(service=svc, options=o)
     d.set_page_load_timeout(40)
     return d
 
@@ -132,8 +136,13 @@ def main():
                 log("快检列表未加载(登录态可能失效, 请重跑 save_auth_state.py)")
                 break
             rows = page.qc_list_rows()
+            dist = Counter((r.get("status") or "?").strip() for r in rows)
             done = [r for r in rows if "已完成" in (r.get("status") or "")]
-            log(f"[轮询#{round_no}] 列表 {len(rows)} 行, 已完成 {len(done)} 个; 已校验 {len(verified)} 个")
+            log(f"[轮询#{round_no}] 列表 {len(rows)} 行 状态分布={dict(dist)}; 已完成 {len(done)} 个; 已校验 {len(verified)} 个")
+            for r in done:
+                nm = norm(r["name"])
+                matched = any(k and (k in nm or nm in k) for k in expected)
+                log(f"    已完成: {r['name'][:40]} | 匹配期望={matched}")
 
             for r in done:
                 nm = norm(r["name"])
