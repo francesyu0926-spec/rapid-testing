@@ -403,6 +403,99 @@ def quick_check_detail_page(driver, request):
 
 
 @pytest.fixture(scope="module")
+def consistency_context(driver, request):
+    """L2 自洽性上下文: 进某"已完成"快检项目详情, 产出"上传文件 oracle + 详情展示文本".
+
+    流程:
+      1) 由测试资料目录解析期望(项目名 + 前 K 家投标单位), 复用创建时的解析逻辑;
+      2) 进快检列表, 找一个"已完成"且能与某材料目录项目名匹配的项目;
+      3) 进其详情, 抓全文本(blob);
+      4) 产出 {expected, blob, name_hit, units_found, units_total, units_missing}.
+    任一前置不满足(无材料/无已完成匹配项目/详情未渲染)则 skip, 不产生假失败.
+    """
+    base_url = request.config.getoption("--base-url").rstrip("/")
+    auth_path = Path(request.config.getoption("--auth-state"))
+    if not auth_path.exists():
+        pytest.skip(f"未找到登录态文件 {auth_path}, 请先运行: python save_auth_state.py")
+
+    try:
+        from verify_results import build_expected, norm
+    except Exception as e:  # pragma: no cover
+        pytest.skip(f"无法导入比对逻辑(verify_results): {e}")
+
+    expected = build_expected(count=16, bidders=3)
+    if not expected:
+        pytest.skip("测试资料目录未解析出任何期望项目(检查 MATERIALS 目录与文件结构)")
+
+    with open(auth_path, "r", encoding="utf-8") as f:
+        state = json.load(f)
+    _inject_auth_state(driver, base_url, state)
+
+    def cleanup():
+        _cleanup_auth_state(driver, base_url)
+
+    page = ProjectPage(driver, base_url)
+    if not page.ensure_quick_check_loaded(attempts=4, timeout=25):
+        cleanup()
+        pytest.skip("快检列表未加载, 无法做一致性比对")
+
+    # 找"已完成"且与期望集合匹配的首个项目(快检列表分页, 故跨页扫描)
+    match_key = None
+    online_name = None
+    for _page_no in range(10):  # 最多扫 10 页
+        for r in page.qc_list_rows():
+            if "已完成" not in (r.get("status") or ""):
+                continue
+            nm = norm(r.get("name") or "")
+            for k in expected:
+                if k and (k in nm or nm in k):
+                    match_key, online_name = k, r.get("name")
+                    break
+            if match_key:
+                break
+        if match_key or not page.qc_next_page(timeout=10):
+            break
+    if not match_key:
+        cleanup()
+        pytest.skip("快检列表(跨页)中无与测试资料匹配的'已完成'项目, 无法做一致性比对")
+
+    entry = expected[match_key]
+    detail = ProjectDetailPage(driver, base_url)
+    qc_markers = ("招标备案识别", "投标文件查重", "报价规律", "本页目录")
+    rendered = False
+    # 进详情后须等异步审查内容渲染再抓文本, 否则只拿到骨架(整体重试: 进列表->点名称->等内容)
+    for _ in range(3):
+        if not page.enter_quick_check_detail_by_name(entry["name"], timeout=20):
+            page.ensure_quick_check_loaded(attempts=2, timeout=20)
+            continue
+        detail.wait_loaded(timeout=20)
+        if detail.wait_content(markers=qc_markers, timeout=25):
+            rendered = True
+            break
+        page.ensure_quick_check_loaded(attempts=2, timeout=20)
+    if not rendered:
+        cleanup()
+        pytest.skip(f"'{entry['name'][:20]}'快检详情内容未渲染(数据加载超时)")
+    blob = page.quick_check_detail_blob(settle=5)
+    nblob = norm(blob)
+    units = entry["units"]
+    unit_hits = [u for u in units if norm(u) and norm(u) in nblob]
+    ctx = {
+        "expected": entry,
+        "online_name": online_name,
+        "blob_len": len(blob),
+        "name_hit": (norm(entry["name"])[:20] in nblob) if entry["name"] else False,
+        "units_total": len(units),
+        "units_found": len(unit_hits),
+        "units_missing": [u for u in units if u not in unit_hits],
+    }
+    try:
+        yield ctx
+    finally:
+        cleanup()
+
+
+@pytest.fixture(scope="module")
 def prebid_detail_page(driver, request):
     """已进入某"开标前"项目详情页(开标前环节校验)的页面对象(module 级, 仅进入一次).
 

@@ -95,6 +95,27 @@ class ProjectPage:
             time.sleep(0.5)
         return False
 
+    def wait_app_chrome(self, timeout: int = 40) -> bool:
+        """等待登录后应用外壳渲染就绪(侧栏/根菜单/顶部角色下拉/新建项目 任一出现).
+
+        注入登录态后 SPA 需异步用 token 恢复并拉取菜单, 直接断言会过早; 这里轮询直到
+        外壳元素出现。期间若被重定向到 /login 立即返回 False。
+        """
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            url = self.current_url()
+            if "/login" in url:
+                return False
+            try:
+                if (self.sider_visible() or self.menu_visible()
+                        or self._role_select_el() is not None
+                        or self.has_new_project_button()):
+                    return True
+            except Exception:
+                pass
+            time.sleep(1)
+        return False
+
     # ---------- 框架/导航读取 ----------
     def sider_visible(self) -> bool:
         try:
@@ -122,6 +143,88 @@ class ProjectPage:
                 self.driver.execute_script("arguments[0].click();", el)
                 return True
         return False
+
+    # ---------- 角色切换(顶部 header 角色下拉) ----------
+    # 角色仅在当前会话内生效, 重开浏览器默认回"项目经理"; 切换后勿再 driver.get 导航,
+    # 否则会被重定向回 my-projects. 详见调研脚本 bidder_create.py。
+    ROLES = ("投标人员", "项目经理", "评审专家")
+    HEADER_ROLE_SELECT = (By.CSS_SELECTOR, ".ant-layout-header .ant-select")
+    ROLE_DROPDOWN_OPTION = (By.CSS_SELECTOR, ".ant-select-dropdown .ant-select-item-option")
+    MY_TASKS_PATH = "/ai/my-tasks/list"
+
+    def _role_select_el(self):
+        """header 内显示角色名的 ant-select(角色切换器)."""
+        for s in self.driver.find_elements(*self.HEADER_ROLE_SELECT):
+            try:
+                if any(r in (s.text or "") for r in self.ROLES):
+                    return s
+            except Exception:
+                continue
+        return None
+
+    def current_role(self, timeout: int = 30) -> str:
+        """读取当前角色名(异步渲染, 轮询等待); 读不到返回空串."""
+        end = time.time() + timeout
+        while time.time() < end:
+            sel = self._role_select_el()
+            if sel is not None:
+                t = (sel.text or "").strip()
+                if any(r in t for r in self.ROLES):
+                    return t
+            time.sleep(1)
+        return ""
+
+    def has_new_project_button(self) -> bool:
+        return any(b.is_displayed() for b in self.driver.find_elements(*self.NEW_PROJECT_BUTTON))
+
+    def _open_role_dropdown_and_pick(self, target: str) -> bool:
+        sel = self._role_select_el()
+        if sel is None:
+            return False
+        try:
+            sel.click()
+        except Exception:
+            try:
+                self.driver.execute_script("arguments[0].click();", sel)
+            except Exception:
+                return False
+        time.sleep(1.2)
+        for o in self.driver.find_elements(*self.ROLE_DROPDOWN_OPTION):
+            try:
+                if o.is_displayed() and target in o.text:
+                    self.driver.execute_script("arguments[0].click();", o)
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def switch_role(self, target: str, timeout: int = 20) -> bool:
+        """切换到指定角色(投标人员/项目经理/评审专家). 切到投标人员时等"新建项目"出现.
+
+        若当前已是目标角色且页面就绪则直接成功; 否则操作下拉选择, 必要时先切到其他角色
+        再切回以强制触发应用内导航(antd 选同值不重新触发).
+        """
+        cur = self.current_role()
+        if target in cur and (target != "投标人员" or self.has_new_project_button()):
+            return True
+        for _ in range(4):
+            cur = (self._role_select_el().text or "").strip() if self._role_select_el() else ""
+            if target in cur and target == "投标人员" and not self.has_new_project_button():
+                # 已显示投标人员但按钮未出现 -> 先切走再切回, 强制重渲染
+                self._open_role_dropdown_and_pick("项目经理")
+                time.sleep(1.5)
+            if self._open_role_dropdown_and_pick(target):
+                if target == "投标人员":
+                    end = time.time() + timeout
+                    while time.time() < end:
+                        if self.MY_TASKS_PATH in self.current_url() and self.has_new_project_button():
+                            return True
+                        time.sleep(1)
+                else:
+                    if self.wait_url_contains(self.PROJECT_LIST_PATH, timeout) or target in self.current_role(8):
+                        return True
+            time.sleep(1.5)
+        return target in self.current_role(2)
 
     # ---------- 列表页 ----------
     def on_project_list(self, timeout: int = 20) -> bool:
@@ -746,6 +849,37 @@ class ProjectPage:
         self.ensure_quick_check_loaded(attempts=2, timeout=20)
         time.sleep(3)
         return _try()
+
+    # ---------- 快检列表: 翻页 ----------
+    PAGINATION_NEXT = (By.CSS_SELECTOR, ".ant-pagination-next")
+
+    def qc_next_page(self, timeout: int = 10) -> bool:
+        """翻到快检列表下一页. 已是最后一页(next 被禁用)或无分页时返回 False.
+
+        通过比较翻页前后首行项目名是否变化来确认翻页生效(数据异步重渲染).
+        """
+        nexts = self.driver.find_elements(*self.PAGINATION_NEXT)
+        if not nexts:
+            return False
+        nxt = nexts[0]
+        cls = nxt.get_attribute("class") or ""
+        if "disabled" in cls or nxt.get_attribute("aria-disabled") == "true":
+            return False
+        before = ""
+        rows = self.qc_list_rows()
+        if rows:
+            before = rows[0].get("name", "")
+        try:
+            self.driver.execute_script("arguments[0].click();", nxt)
+        except Exception:
+            return False
+        end = time.time() + timeout
+        while time.time() < end:
+            rows = self.qc_list_rows()
+            if rows and rows[0].get("name", "") != before:
+                return True
+            time.sleep(0.5)
+        return False
 
     # ---------- 快检列表: 任务状态轮询 + 按名进详情 ----------
     def qc_list_rows(self) -> list:

@@ -159,3 +159,71 @@ class ProjectDetailPage:
         """正文是否同时包含若干文本片段(用于校验业务规则描述)."""
         text = self.body_text()
         return all(f in text for f in fragments)
+
+    # ---------- 按审查区块抓取表格(供 L3 规则重算断言) ----------
+    _SECTION_TABLE_JS = r"""
+var name = arguments[0];
+var out = {found:false, has_table:false, empty:false, headers:[], rows:[]};
+var all = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,div,span,p'));
+var head = null;
+for (var i=0;i<all.length;i++){
+  var t=(all[i].innerText||'').trim();
+  if(t===name || (t.indexOf(name)===0 && t.length < name.length+8)){head=all[i];break;}
+}
+if(!head){return out;}
+out.found=true;
+// 从标题向后(文档顺序, 用页面纵坐标)取最近一张表格
+var tables=Array.from(document.querySelectorAll('.ant-table'));
+var hp=head.getBoundingClientRect().top + window.scrollY;
+var best=null, bd=1e9;
+tables.forEach(function(tb){
+  var tp=tb.getBoundingClientRect().top+window.scrollY;
+  var d=tp-hp; if(d>=-5 && d<bd){bd=d; best=tb;}
+});
+if(!best){return out;}
+out.has_table=true;
+out.headers=Array.from(best.querySelectorAll('.ant-table-thead th'))
+  .map(function(e){return (e.innerText||'').trim();});
+if(best.querySelector('.ant-table-placeholder')){ out.empty=true; }
+// 仅取真实数据行(排除 antd 的测量行/占位行)
+out.rows=Array.from(best.querySelectorAll('.ant-table-tbody tr.ant-table-row'))
+  .map(function(r){
+    return Array.from(r.querySelectorAll('td')).map(function(c){return (c.innerText||'').trim();});
+  });
+return out;
+"""
+
+    def section_table(self, name: str, settle: float = 1.0) -> dict:
+        """抓取某审查区块标题后紧邻的表格.
+
+        返回 {found, has_table, empty, headers:[...], rows:[[...]]}.
+          - found: 是否找到该区块标题
+          - has_table: 标题后是否存在表格
+          - empty: 表格是否为"暂无数据"占位
+          - headers: 表头文本(可能末列为空, 调用方自行过滤)
+          - rows: 真实数据行(已排除 antd 测量/占位行)
+        """
+        if settle:
+            time.sleep(settle)
+        try:
+            res = self.driver.execute_script(self._SECTION_TABLE_JS, name)
+        except Exception:
+            res = None
+        if not isinstance(res, dict):
+            return {"found": False, "has_table": False, "empty": False, "headers": [], "rows": []}
+        res.setdefault("headers", [])
+        res.setdefault("rows", [])
+        return res
+
+    def section_rows_as_dicts(self, name: str) -> list:
+        """把某区块表格按表头映射为 [{表头: 单元格}] 列表(表头与单元格按列对齐)."""
+        tb = self.section_table(name)
+        headers = [h for h in tb.get("headers", [])]
+        out = []
+        for row in tb.get("rows", []):
+            d = {}
+            for i, cell in enumerate(row):
+                key = headers[i] if i < len(headers) and headers[i] else f"col{i}"
+                d[key] = cell
+            out.append(d)
+        return out
