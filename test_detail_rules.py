@@ -330,6 +330,140 @@ class TestRecordAudit:
             pytest.skip("备案识别计数列均为占位'-'(尚未完成一致性比对), 无可校验数值")
 
 
+class TestHandwriting:
+    """投标笔迹校验(3.3.7 / 4.3.2.8): 该表为单位两两矩阵, 单元格形如 'x|y'(双向比对计数).
+
+    确定性结构 oracle:
+      · 对角为 '-';
+      · 交换对称: 单元格(A,B)='x|y' 则 单元格(B,A) 必为 'y|x'(两数对调);
+      · x,y 均为非负整数.
+    """
+
+    @staticmethod
+    def _pair(raw):
+        """'19|29' -> (19,29); '-'/空/无效 -> None."""
+        if raw is None:
+            return None
+        t = raw.strip()
+        if t in ("", "-", "—"):
+            return None
+        parts = re.split(r"[|/]", t)
+        if len(parts) != 2:
+            return None
+        try:
+            return int(parts[0].strip()), int(parts[1].strip())
+        except ValueError:
+            return None
+
+    def test_handwriting_matrix_swap_symmetry(self, quick_check_detail_page):
+        tb = quick_check_detail_page.section_table("投标笔迹校验")
+        if not tb.get("has_table") or tb.get("empty") or not tb.get("rows"):
+            pytest.skip("投标笔迹校验暂无数据")
+        headers = tb["headers"]
+        col_names = [h for h in headers[1:] if h]
+        matrix = {}
+        for row in tb["rows"]:
+            if len(row) < 2:
+                continue
+            matrix[row[0]] = {col_names[j - 1]: row[j]
+                              for j in range(1, len(row)) if j - 1 < len(col_names)}
+        assert matrix, f"未能解析笔迹矩阵, headers={headers}"
+
+        names = list(matrix.keys())
+        checked = 0
+        for a in names:
+            for b, raw in matrix[a].items():
+                if a == b:
+                    assert raw.strip() in ("-", "—", ""), f"笔迹矩阵对角({a})应为'-', 实际 {raw!r}"
+                    continue
+                pair = self._pair(raw)
+                if pair is None:
+                    continue
+                assert pair[0] >= 0 and pair[1] >= 0, f"笔迹计数为负: {a}x{b}={raw!r}"
+                # 交换对称: (A,B)=x|y 则 (B,A)=y|x
+                if b in matrix and a in matrix.get(b, {}):
+                    rev = self._pair(matrix[b][a])
+                    if rev is not None:
+                        assert rev == (pair[1], pair[0]), (
+                            f"笔迹矩阵非交换对称: {a}x{b}={raw!r} 但 {b}x{a}={matrix[b][a]!r}"
+                        )
+                        checked += 1
+        if checked == 0:
+            pytest.skip("笔迹矩阵无可比对的成对数值(多为占位)")
+
+
+class TestBidFileValidation:
+    """投标文件校验(4.3.2): 列含 投标单位/投标文件状态/AI识别状态/AI结果数.
+
+    结构不变量: 各行单位唯一且与行数一致; 投标文件状态/AI识别状态 已渲染(非占位);
+    AI结果数 若为数值应非负.
+    """
+
+    def test_status_rendered_and_units_unique(self, quick_check_detail_page):
+        tb = quick_check_detail_page.section_table("投标文件校验")
+        if not tb.get("has_table") or tb.get("empty") or not tb.get("rows"):
+            pytest.skip("投标文件校验暂无数据")
+        h = tb["headers"]
+        unit_i = _col_index(h, "投标单位", "单位名称")
+        fst_i = _col_index(h, "投标文件状态")
+        ai_i = _col_index(h, "AI识别状态")
+        cnt_i = _col_index(h, "AI结果数")
+        if unit_i < 0:
+            pytest.skip(f"未识别到投标单位列, headers={h}")
+
+        units = []
+        for row in tb["rows"]:
+            unit = (row[unit_i] or "").strip() if unit_i < len(row) else ""
+            assert unit and unit not in ("-", "—"), f"投标单位为空: {row}"
+            units.append(unit)
+            if 0 <= fst_i < len(row):
+                assert (row[fst_i] or "").strip() not in ("", "-", "—"), f"投标文件状态未渲染: {row}"
+            if 0 <= ai_i < len(row):
+                assert (row[ai_i] or "").strip() not in ("", "-", "—"), f"AI识别状态未渲染: {row}"
+            if 0 <= cnt_i < len(row):
+                c = _int(row[cnt_i])
+                if c is not None:
+                    assert c >= 0, f"AI结果数为负: {row}"
+        assert len(set(units)) == len(units), f"投标文件校验出现重复单位行: {units}"
+
+
+class TestBidEnvironmentMac:
+    """投标环境校验(4.3.2.6): 校验 使用过的MAC地址 格式合法, 并检测跨单位重复MAC(围标信号).
+
+    与投标IP校验同构. 开标中详情该区块, 样本常'暂无数据', 无数据时 skip.
+    """
+
+    _MAC = re.compile(r"^[0-9A-Fa-f]{2}([:-][0-9A-Fa-f]{2}){5}$")
+
+    def test_mac_format_and_duplicates(self, project_detail_page):
+        tb = project_detail_page.section_table("投标环境校验")
+        if not tb.get("has_table") or tb.get("empty") or not tb.get("rows"):
+            pytest.skip("投标环境校验暂无数据")
+        h = tb["headers"]
+        unit_i = _col_index(h, "投标单位", "单位名称")
+        mac_i = _col_index(h, "MAC")
+        if mac_i < 0:
+            pytest.skip(f"未识别到MAC列, headers={h}")
+
+        mac_units = {}
+        seen = 0
+        for row in tb["rows"]:
+            unit = row[unit_i] if 0 <= unit_i < len(row) else "?"
+            cell = row[mac_i].strip() if mac_i < len(row) else ""
+            if not cell or cell in ("-", "—"):
+                continue
+            for mac in re.split(r"[\s,;]+", cell):
+                if not mac:
+                    continue
+                assert self._MAC.match(mac), f"{unit} 含非法MAC: {mac!r}"
+                mac_units.setdefault(mac, []).append(unit)
+                seen += 1
+        if seen == 0:
+            pytest.skip("投标环境校验无有效MAC数据")
+        dups = [f"{m} <- {sorted(set(u))}" for m, u in mac_units.items() if len(set(u)) >= 2]
+        print("\n[投标环境-跨单位重复MAC]\n" + ("\n".join(dups) if dups else "无跨单位重复MAC"))
+
+
 class TestBidTimeSimilarity:
     """投标时间相近(4.3.2.11): 若以表格呈现则校验时间格式; 区块缺失或无数据时按数据/渲染依赖 skip."""
 
