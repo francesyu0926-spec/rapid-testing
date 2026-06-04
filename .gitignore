@@ -1,5 +1,6 @@
 # 登录态 (含真实凭证, 切勿提交)
 auth_state.json
+auth_state_*.json
 
 # Python
 __pycache__/

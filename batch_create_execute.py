@@ -107,12 +107,14 @@ def inject_auth(d, state):
             pass
 
 
-def process_one(page: ProjectPage, proj: Path, max_bidders: int, upload_timeout: int) -> str:
+def process_one(page: ProjectPage, proj: Path, max_bidders: int, upload_timeout: int,
+                logf=None) -> str:
+    logf = logf or log
     tender, bidders = resolve(proj, max_bidders)
     if not tender or len(bidders) < 1:
         return f"跳过(资料不全 招标={bool(tender)} 投标={len(bidders)})"
     name = extract_project_name(tender) or proj.name
-    log(f"  项目名: {name}  招标=1 投标={len(bidders)}家")
+    logf(f"  项目名: {name}  招标=1 投标={len(bidders)}家")
 
     if not page.ensure_quick_check_loaded(attempts=4, timeout=25):
         return "失败(快检列表未加载)"
@@ -120,14 +122,14 @@ def process_one(page: ProjectPage, proj: Path, max_bidders: int, upload_timeout:
         return "失败(未打开新建抽屉)"
 
     def _cb(done, total, percents):
-        log(f"  上传进度: 第{done}/{total}份完成 percents={percents}")
+        logf(f"  上传进度: 第{done}/{total}份完成 percents={percents}")
 
-    log(f"  开始逐个上传(招标+{len(bidders)}家)...")
+    logf(f"  开始逐个上传(招标+{len(bidders)}家)...")
     if not page.fill_and_upload_sequential(name, tender, bidders, record_pdf=None,
                                            per_file_timeout=upload_timeout, progress_cb=_cb):
         page.cancel_modal()
         return f"失败(上传超时/异常 进度={page.upload_percents()})"
-    log(f"  上传完成, 提交 ...")
+    logf(f"  上传完成, 提交 ...")
     if not page.submit_new_project():
         page.cancel_modal()
         return "失败(无提交按钮)"
@@ -137,7 +139,7 @@ def process_one(page: ProjectPage, proj: Path, max_bidders: int, upload_timeout:
     if page.new_project_form_open():
         page.cancel_modal()
         return "失败(提交后抽屉未关闭)"
-    log(f"  已提交, 在列表中点击执行 ...")
+    logf(f"  已提交, 在列表中点击执行 ...")
     page.ensure_quick_check_loaded(attempts=3, timeout=20)
     if page.click_execute(name, timeout=25):
         return "成功(已创建+已点执行)"

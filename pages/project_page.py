@@ -369,10 +369,21 @@ class ProjectPage:
         def _form_ready() -> bool:
             return self.new_project_form_open()
 
+        # 并发/高负载时 React 渲染"新建项目"按钮偏慢, 先等按钮出现再点(不立即判失败)
+        btn_deadline = time.time() + timeout
+        while time.time() < btn_deadline and not self.driver.find_elements(*self.NEW_PROJECT_BUTTON):
+            time.sleep(0.5)
+
         for _ in range(3):
             btns = self.driver.find_elements(*self.NEW_PROJECT_BUTTON)
             if not btns:
-                return False
+                # 仍未渲染出按钮, 再等一会而非直接放弃
+                end = time.time() + timeout
+                while time.time() < end and not self.driver.find_elements(*self.NEW_PROJECT_BUTTON):
+                    time.sleep(0.5)
+                btns = self.driver.find_elements(*self.NEW_PROJECT_BUTTON)
+                if not btns:
+                    continue
             btn = btns[0]
             try:
                 self.driver.execute_script(
