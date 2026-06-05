@@ -2,6 +2,9 @@
 auth_state.json
 auth_state_*.json
 
+# 接口模拟器配置 (含 base_url 与各角色真实 token, 切勿提交)
+api_tests/config.yaml
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,0 +1,78 @@
+# 招投标流程模拟器配置
+# 复制为 config.yaml 后填入真实环境信息（config.yaml 已被 .gitignore 忽略，避免泄露 token）
+
+# API 根地址（不含 /api 前缀），例如 https://example.com
+base_url: "https://your-host-here"
+api_prefix: "/api"
+
+options:
+  timeout: 30
+  verify_ssl: true
+  # 缴费在当前环境如何处理：
+  #   supplement -> 调"补单"接口完成缴费（推荐：见下方 payment.supplement 配置）
+  #   real       -> 调真实支付接口（通常需要微信/支付宝沙箱，自动化往往跑不通）
+  #   mock       -> 跳过真实支付，假定缴费已完成
+  #   skip       -> 不处理缴费，遇到缴费门槛则记录并继续后续可执行步骤
+  payment_mode: "skip"
+  # true=真实写入（创建项目/报名/递交等会产生正式数据）；false=演练模式，写操作前会打印将要发送的请求但不发送
+  allow_writes: false
+  # 单步失败时：continue=记录并继续后续步骤；abort=立即停止
+  on_error: "continue"
+
+# 各角色账号。鉴权二选一：
+#   1) token：直接填已获取的有效 Token（联调首选，最稳）
+#   2) username + password：走 /api/login/check 自动换取 token
+# 不需要的角色留空即可（模拟器会跳过依赖该角色的步骤）。
+accounts:
+  manager:      # 项目经理：发布项目、审核报名、邀请专家、管理开标/中标/代理费
+    token: ""
+    username: ""
+    password: ""
+  tenderee:     # 招标人：接受项目经理邀请
+    token: ""
+    username: ""
+    password: ""
+  bidders:      # 投标人（可多家，至少 2 家以便走完评审）
+    - name: "投标人A"
+      token: ""
+      username: ""
+      password: ""
+    - name: "投标人B"
+      token: ""
+      username: ""
+      password: ""
+  experts:      # 评标专家（建议 3 位，组长推选/评审需要）
+    - name: "专家1"
+      token: ""
+      username: ""
+      password: ""
+    - name: "专家2"
+      token: ""
+      username: ""
+      password: ""
+    - name: "专家3"
+      token: ""
+      username: ""
+      password: ""
+
+# 缴费补单接口配置（payment_mode=supplement 时生效）
+# 用占位符 {register_id} {project_id} {section_id} {bidder_label}，运行时自动替换。
+payment:
+  supplement:
+    role: "manager"          # 由哪个角色调用：manager / tenderee / bidder（bidder=各投标人用自己的 token）
+    method: "POST"           # GET / POST
+    path: ""                 # 补单接口路径（相对 /api），例如 /project_register/paymentErrorHandler
+    # 请求参数模板（按补单接口实际字段填写）
+    params:
+      register_id: "{register_id}"
+
+# 发布项目时使用的字段（按需求《发布招标信息》填写；不同环境字段名可能略有差异，跑通后据日志微调）
+project:
+  project_name: "接口模拟-测试项目"
+  pattern_id: 1          # 招标方式：1公开招标 2询比采购 3谈判采购 4竞争性磋商 5竞争性谈判 6竞价采购 7单一来源
+  cate_id: 1             # 招标类型（取自 /publicity/cate）
+  file_fee: "100"        # 文件费（元）
+  platform_fee: "100"    # 平台使用费（元）
+  is_lowest_price: 0     # 是否最低价中标
+  need_audit: 1          # 获取采购文件是否需要审核：1是 0否
+  open_public_register: 1
