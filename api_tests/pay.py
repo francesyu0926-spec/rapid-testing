@@ -58,8 +58,9 @@ def build_admin(cfg: dict) -> AdminClient:
         sys.exit(1)
     opts = cfg.get("options", {})
     return AdminClient(cfg["base_url"], adm.get("prefix", "/zjgj230214"),
-                       adm["php_session"], timeout=opts.get("timeout", 30),
-                       verify_ssl=opts.get("verify_ssl", True))
+                       adm.get("php_session", ""), timeout=opts.get("timeout", 30),
+                       verify_ssl=opts.get("verify_ssl", True),
+                       username=adm.get("username", ""), password=adm.get("password", ""))
 
 
 def do_list_projects(admin: AdminClient, page, limit):

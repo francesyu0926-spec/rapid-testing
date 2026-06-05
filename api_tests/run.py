@@ -67,7 +67,12 @@ def build_client(acct: dict, base_url, api_prefix, opts, label, dry_run,
             log(f"[{label}] code={code} 未能解析到 uid")
     # uid 模式：用后台会话给该用户签发 /api token（绕过微信登录）
     if not token and uid and admin is not None:
-        token = admin.mint_token(uid)
+        import time as _t
+        for _ in range(4):
+            token = admin.mint_token(uid)
+            if token:
+                break
+            _t.sleep(2)
         if token:
             log(f"[{label}] 后台模拟登录成功，已为 uid={uid} 签发 token")
         else:
@@ -137,10 +142,12 @@ def main():
     # 后台会话：用于按 uid 给各角色签发 token（绕过微信登录）
     admin = None
     adm_cfg = cfg.get("admin") or {}
-    if (adm_cfg.get("php_session") or "").strip():
+    if (adm_cfg.get("php_session") or "").strip() or (adm_cfg.get("username") or "").strip():
         admin = AdminClient(base_url, adm_cfg.get("prefix", ""),
-                            adm_cfg["php_session"], timeout=opts.get("timeout", 30),
-                            verify_ssl=opts.get("verify_ssl", True))
+                            adm_cfg.get("php_session", ""), timeout=opts.get("timeout", 30),
+                            verify_ssl=opts.get("verify_ssl", True),
+                            username=adm_cfg.get("username", ""),
+                            password=adm_cfg.get("password", ""))
 
     accounts = cfg.get("accounts", {})
     manager = build_client(accounts.get("manager"), base_url, api_prefix, opts,

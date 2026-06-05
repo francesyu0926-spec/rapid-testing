@@ -19,6 +19,15 @@ options:
   # 单步失败时：continue=记录并继续后续步骤；abort=立即停止
   on_error: "continue"
 
+# 后台（admin 应用）会话：用于列项目/报名、以及「模拟登录」给各角色签发 /api token（绕过微信）。
+# 填了 username/password 后，PHPSESSID 过期会自动用图形验证码 OCR 重登刷新（需 pip install ddddocr）。
+# php_session 可留空，由自动登录获取。
+admin:
+  prefix: "/zjgj230214"
+  php_session: ""
+  username: ""
+  password: ""
+
 # 各角色账号。鉴权二选一：
 #   1) token：直接填已获取的有效 Token（联调首选，最稳）
 #   2) username + password：走 /api/login/check 自动换取 token
@@ -66,13 +75,21 @@ payment:
     params:
       register_id: "{register_id}"
 
-# 发布项目时使用的字段（按需求《发布招标信息》填写；不同环境字段名可能略有差异，跑通后据日志微调）
+# 发布项目字段（字段名取自真实 publicity/create）
+# 发布前会先调 /api/uploads/uploadImage 上传 tender_file，返回的 data.url 写入 images 入参。
 project:
-  project_name: "接口模拟-测试项目"
-  pattern_id: 1          # 招标方式：1公开招标 2询比采购 3谈判采购 4竞争性磋商 5竞争性谈判 6竞价采购 7单一来源
-  cate_id: 1             # 招标类型（取自 /publicity/cate）
-  file_fee: "100"        # 文件费（元）
-  platform_fee: "100"    # 平台使用费（元）
-  is_lowest_price: 0     # 是否最低价中标
-  need_audit: 1          # 获取采购文件是否需要审核：1是 0否
-  open_public_register: 1
+  title: "接口模拟-测试项目"     # 项目名称
+  username: "接口测试招标人"     # 招标人名称（必填）
+  company_id: 1          # 代理公司 id（取自 /publicity/company）
+  cate_id: 1             # 招标类型：1工程 2货物 3服务（取自 /publicity/cate）
+  pattern_id: 1          # 招标方式：1公开招标 ...（取自 /publicity/pattern）
+  address: "山西省太原市"
+  price: "1000000"       # 项目预算
+  deposit: "1"           # 保证金
+  file_price: "1"        # 文件费
+  platform_price: "1"    # 平台使用费
+  is_bid_section: 0      # 是否分标段
+  is_min: 1              # 是否最低价中标
+  is_audit: 0            # 获取采购文件是否需要审核：1是 0否
+  intro: "接口自动发布测试项目"
+  tender_file: ""        # 招标文件路径；留空则不带附件

@@ -34,6 +34,14 @@ class Api:
     def index_communal(self) -> ApiResult:
         return self.c.get("/index/communal", auth=False)
 
+    # ----------------------------- 上传 ----------------------------- #
+    def upload_file(self, file_path: str) -> ApiResult:
+        """上传文件，返回里 data.url 即为文件地址（用于发布项目的 images 入参）。"""
+        import os
+        with open(file_path, "rb") as f:
+            files = {"file": (os.path.basename(file_path), f.read(), "application/pdf")}
+        return self.c.post("/uploads/uploadImage", files=files, is_write=True)
+
     # ----------------------------- 招标人邀请 ----------------------------- #
     # invite_project：邀请加入项目 / 招标人邀请
     def invite_tenderee(self, project_id, **extra) -> ApiResult:

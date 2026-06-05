@@ -12,13 +12,19 @@ from client import log
 
 class AdminClient:
     def __init__(self, base_url: str, prefix: str, php_session: str,
-                 timeout: int = 30, verify_ssl: bool = True):
+                 timeout: int = 30, verify_ssl: bool = True,
+                 username: str = "", password: str = "",
+                 captcha_path: str = "/captcha.html"):
         self.base_url = base_url.rstrip("/")
         self.prefix = "/" + prefix.strip("/") if prefix else ""
         self.timeout = timeout
         self.verify_ssl = verify_ssl
+        self.username = username
+        self.password = password
+        self.captcha_path = captcha_path
         self.session = requests.Session()
-        self.session.cookies.set("PHPSESSID", php_session)
+        if php_session:
+            self.session.cookies.set("PHPSESSID", php_session)
         self.session.headers.update({
             "accept": "application/json, text/javascript, */*; q=0.01",
             "accept-language": "zh-CN,zh;q=0.9",
@@ -30,6 +36,70 @@ class AdminClient:
 
     def _url(self, path: str) -> str:
         return f"{self.base_url}{self.prefix}/{path.lstrip('/')}"
+
+    # --------------------------- 自动登录（验证码 OCR） --------------------------- #
+    def login(self, max_tries: int = 10) -> bool:
+        """用用户名/密码 + 图形验证码自动登录，刷新会话内的 PHPSESSID。
+        需要 ddddocr 识别验证码。成功返回 True。"""
+        if not (self.username and self.password):
+            log("[admin.login] 未配置 admin.username/password，无法自动登录")
+            return False
+        try:
+            import ddddocr
+        except ImportError:
+            log("[admin.login] 缺少 ddddocr，请先 pip install ddddocr")
+            return False
+        ocr = getattr(self, "_ocr", None)
+        if ocr is None:
+            ocr = ddddocr.DdddOcr(show_ad=False)
+            self._ocr = ocr
+        for i in range(max_tries):
+            try:
+                # 清掉旧 PHPSESSID，避免与服务端新下发的 cookie 冲突
+                self.session.cookies.clear()
+                # 访问登录页初始化会话
+                self.session.get(self._url("/login/index.html"),
+                                 timeout=self.timeout, verify=self.verify_ssl)
+                img = self.session.get(self.base_url + self.captcha_path,
+                                       timeout=self.timeout, verify=self.verify_ssl).content
+                code = ocr.classification(img)
+                r = self.session.post(
+                    self._url("/login/check.html"),
+                    data={"admin_name": self.username, "password": self.password,
+                          "captcha": code},
+                    timeout=self.timeout, verify=self.verify_ssl)
+                res = r.json()
+                if res.get("code") == 1:
+                    log(f"[admin.login] 自动登录成功，PHPSESSID={self.php_session}")
+                    return True
+            except Exception as e:
+                log(f"[admin.login] 第{i+1}次异常 {type(e).__name__}")
+        log(f"[admin.login] 自动登录失败（已试 {max_tries} 次）")
+        return False
+
+    def ensure_login(self) -> bool:
+        """确保会话已登录：探测一下，未登录则自动登录。"""
+        if self._is_logged_in():
+            return True
+        return self.login()
+
+    def _is_logged_in(self) -> bool:
+        """用模拟登录页探测：已登录返回 JSON(code=1)，未登录会 302 跳转。"""
+        try:
+            r = self.session.get(self._url("/login/index.html"),
+                                 timeout=self.timeout, verify=self.verify_ssl,
+                                 allow_redirects=False)
+            # 已登录时访问 login/index 通常会 302 到首页；未登录返回 200 登录页。
+            # 更可靠的判断放在具体调用（mint/get）里按需重登，这里仅占位。
+            return r.status_code in (301, 302)
+        except requests.RequestException:
+            return False
+
+    @property
+    def php_session(self) -> str:
+        # 可能存在多个同名 cookie（不同 domain/path），安全取最后一个
+        vals = [c.value for c in self.session.cookies if c.name == "PHPSESSID"]
+        return vals[-1] if vals else ""
 
     def get(self, path: str, params: dict = None, referer: str = None) -> dict:
         headers = {}
@@ -108,9 +178,9 @@ class AdminClient:
             self._code_map = cache
         return int(cache.get(code) or 0)
 
-    def mint_token(self, uid) -> str:
+    def mint_token(self, uid, _relogin: bool = True) -> str:
         """后台「模拟登录」给指定用户签发前端 /api token（绕过微信/密码）。
-        成功返回 token 字符串，失败返回空串。"""
+        会话过期（302）时自动重登一次。成功返回 token 字符串，失败返回空串。"""
         try:
             resp = self.session.get(
                 self._url("/user/login.html"), params={"id": uid},
@@ -119,6 +189,12 @@ class AdminClient:
             )
         except requests.RequestException as e:
             log(f"[mint_token] uid={uid} 请求异常: {e}")
+            return ""
+        # 302 = 会话已过期被重定向到登录页：自动重登后重试一次
+        if resp.status_code in (301, 302) and _relogin and (self.username and self.password):
+            log(f"[mint_token] 会话疑似过期(302)，尝试自动重登…")
+            if self.login():
+                return self.mint_token(uid, _relogin=False)
             return ""
         token = resp.cookies.get("token")
         if not token:
@@ -131,6 +207,10 @@ class AdminClient:
                     break
         # mint 会把 token 写进当前 session，清掉以免影响后续 admin 调用语义
         self.session.cookies.pop("token", None)
+        if not token and _relogin and (self.username and self.password):
+            log(f"[mint_token] uid={uid} 未拿到 token，尝试自动重登后重试…")
+            if self.login():
+                return self.mint_token(uid, _relogin=False)
         if not token:
             log(f"[mint_token] uid={uid} 未拿到 token：{(resp.text or '')[:120]}")
         return token or ""

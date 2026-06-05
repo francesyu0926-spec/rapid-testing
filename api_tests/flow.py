@@ -93,6 +93,9 @@ class TenderSimulator:
 
     # ------------------------------- 1 发布项目 ------------------------------- #
     def step_publish_project(self):
+        import os
+        import json as _json
+        import datetime
         name = "项目经理发布招标项目"
         pj = self.cfg.get("project", {})
         # 先拉基础字典（招标类型/方式/代理公司），失败不致命
@@ -100,15 +103,46 @@ class TenderSimulator:
         self.manager.publicity_pattern()
         self.manager.publicity_company()
 
+        # 先上传招标文件，把返回地址放进 images（发布项目的入参之一）
+        images = "[]"
+        tender = pj.get("tender_file")
+        if tender and os.path.exists(tender):
+            up = self.manager.upload_file(tender)
+            url = up.get("url") if isinstance(up.data, dict) else None
+            if url:
+                images = _json.dumps([{"name": url, "tempFilePath": url}],
+                                     ensure_ascii=False)
+                log(f"招标文件已上传：{url}", indent=2)
+            else:
+                log(f"招标文件上传失败：{up.brief()}", indent=2)
+
+        now = datetime.datetime.now()
+        fmt = "%Y-%m-%d %H:%M:%S"
+        tomorrow = now + datetime.timedelta(days=1)
+        file_start = now - datetime.timedelta(minutes=10)                 # 今天（已开始报名）
+        file_end = tomorrow.replace(hour=9, minute=0, second=0, microsecond=0)   # 明天
+        open_time = tomorrow.replace(hour=14, minute=0, second=0, microsecond=0)  # 明天（同一天）
+        title = pj.get("title", pj.get("project_name", "接口模拟-测试项目"))
         payload = {
-            "project_name": pj.get("project_name", "接口模拟-测试项目"),
-            "pattern_id": pj.get("pattern_id", 1),
+            "title": title,
+            "username": pj.get("username", "接口测试招标人"),
+            "project_no": pj.get("project_no") or f"AUTO{now.strftime('%y%m%d%H%M%S')}",
+            "company_id": pj.get("company_id", 1),
             "cate_id": pj.get("cate_id", 1),
-            "file_fee": pj.get("file_fee", "100"),
-            "platform_fee": pj.get("platform_fee", "100"),
-            "is_lowest_price": pj.get("is_lowest_price", 0),
-            "need_audit": pj.get("need_audit", 1),
-            "open_public_register": pj.get("open_public_register", 1),
+            "pattern_id": pj.get("pattern_id", 1),
+            "address": pj.get("address", "山西省太原市"),
+            "file_start_time": file_start.strftime(fmt),
+            "file_end_time": file_end.strftime(fmt),
+            "start_time": open_time.strftime(fmt),
+            "price": str(pj.get("price", "1000000")),
+            "deposit": str(pj.get("deposit", "1")),
+            "file_price": str(pj.get("file_price", pj.get("file_fee", "1"))),
+            "platform_price": str(pj.get("platform_price", pj.get("platform_fee", "1"))),
+            "is_bid_section": pj.get("is_bid_section", 0),
+            "is_min": pj.get("is_min", pj.get("is_lowest_price", 1)),
+            "is_audit": pj.get("is_audit", pj.get("need_audit", 0)),
+            "intro": pj.get("intro", "接口自动发布测试项目"),
+            "images": images,
         }
         res = self.manager.publicity_create(payload)
         if not res.ok:
@@ -179,14 +213,33 @@ class TenderSimulator:
         if not self.bidders:
             self._record(name, "SKIP", "未配置投标人账号")
             return
+        # 报名需上传资质文件：上传一次，三家复用其地址
+        import os as _os
+        import json as _json
+        images = "[]"
+        qfile = self.cfg.get("project", {}).get("tender_file")
+        if qfile and _os.path.exists(qfile):
+            up = self.bidders[0].upload_file(qfile)
+            url = up.get("url") if isinstance(up.data, dict) else None
+            if url:
+                images = _json.dumps([{"name": url, "tempFilePath": url}],
+                                     ensure_ascii=False)
+                log(f"报名资质文件已上传：{url}", indent=2)
         ok = 0
         for b in self.bidders:
             b.register_check(self.ctx["project_id"], self.ctx["section_id"])
+            sid = self.ctx["section_id"]
             payload = {
                 "project_id": self.ctx["project_id"],
-                "section_id": self.ctx["section_id"],
+                "section_id": sid,
+                "sections": str(sid),
                 "company_name": f"{b.label}有限公司",
-                "company_address": "测试地址",
+                "company_address": "山西省太原市测试地址",
+                "legal_name": "张三",
+                "contact": f"{b.label}联系人",
+                "contact_phone": "13800000000",
+                "email": "test@example.com",
+                "images": images,
             }
             res = b.register(payload)
             if res.ok:
@@ -305,6 +358,11 @@ class TenderSimulator:
         name = "项目经理审核报名"
         if not self._need("project_id"):
             self._record(name, "SKIP", "缺少 project_id")
+            return
+        # 免审核模式（is_audit=0）：缴费即报名成功，无需审核
+        pj = self.cfg.get("project", {})
+        if int(pj.get("is_audit", pj.get("need_audit", 0)) or 0) == 0:
+            self._record(name, "SKIP", "is_audit=0：免审核，缴费即报名成功")
             return
         lst = self.manager.publicity_register_list(
             self.ctx["project_id"], self.ctx["section_id"], limit=50)

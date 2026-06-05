@@ -23,6 +23,7 @@ venv/
 # 调试脚本输出 (探针/批量日志等)
 *_out.txt
 *_out.json
+*.log
 
 # 本地 chromedriver (平台相关二进制, 各机器自行下载)
 drivers/

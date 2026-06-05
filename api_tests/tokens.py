@@ -28,12 +28,13 @@ def load_cfg(path="config.yaml"):
 
 def make_admin(cfg):
     adm = cfg.get("admin") or {}
-    if not (adm.get("php_session") or "").strip():
-        print("config.yaml 缺少 admin.php_session"); sys.exit(1)
+    if not (adm.get("php_session") or "").strip() and not (adm.get("username") or "").strip():
+        print("config.yaml 缺少 admin.php_session 或 admin.username/password"); sys.exit(1)
     opts = cfg.get("options", {})
-    return AdminClient(cfg["base_url"], adm.get("prefix", ""), adm["php_session"],
+    return AdminClient(cfg["base_url"], adm.get("prefix", ""), adm.get("php_session", ""),
                        timeout=opts.get("timeout", 30),
-                       verify_ssl=opts.get("verify_ssl", True))
+                       verify_ssl=opts.get("verify_ssl", True),
+                       username=adm.get("username", ""), password=adm.get("password", ""))
 
 
 def cmd_list(cfg, args):
