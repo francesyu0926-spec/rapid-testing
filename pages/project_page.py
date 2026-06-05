@@ -429,6 +429,38 @@ class ProjectPage:
         """列表中是否存在指定状态(开标前/开标中/...)的项目行."""
         return any(status in r.text for r in self.rows())
 
+    def open_first_project_detail(self, timeout: int = 12) -> bool:
+        """点击项目列表首行"项目名称"链接进入项目详情, 返回是否进入详情(URL=/list/<id>).
+
+        与状态无关, 用于"任一可见项目均可进入详情"的访问性验证(如评审专家). 两轮重试.
+        """
+        def _try() -> bool:
+            for _ in range(4):
+                rows = self.rows()
+                if not rows:
+                    time.sleep(1)
+                    continue
+                links = rows[0].find_elements(By.CSS_SELECTOR, "td a")
+                if links:
+                    try:
+                        self.driver.execute_script(
+                            "arguments[0].scrollIntoView({block:'center'});", links[0])
+                        self.driver.execute_script("arguments[0].click();", links[0])
+                    except Exception:
+                        pass
+                    if self._wait_detail(6):
+                        return True
+                else:
+                    time.sleep(1)
+            return self.on_project_detail()
+
+        time.sleep(2)
+        if _try():
+            return True
+        self.ensure_list_loaded(attempts=2, timeout=20)
+        time.sleep(2)
+        return _try()
+
     # ---------- 快检项目页 / 顶部框架 ----------
     def on_quick_check(self, timeout: int = 20) -> bool:
         """是否已进入快检项目页."""

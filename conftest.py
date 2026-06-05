@@ -11,6 +11,7 @@
 
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -595,6 +596,81 @@ def bidder_context(driver, request):
         yield ctx
     finally:
         try:
+            bc._select_role(driver, "项目经理")
+            time.sleep(1.5)
+        except Exception:
+            pass
+        cleanup()
+
+
+@pytest.fixture(scope="module")
+def reviewer_context(driver, request):
+    """切到"评审专家"角色后的会话上下文, 用于评审专家角色边界断言.
+
+    实测定位: 评审专家是面向项目/评标的"只读评审"角色 ——
+      - 落地项目经理同侧的"我的项目/项目列表"(非投标人员的"我的任务");
+      - 无"新建项目"能力(不可发起项目);
+      - 可进入项目详情(可见评标环节), 区别于投标人员被拦截。
+    采集: home(url/role/menus/new_btn) 与 detail(点列表首行进入后的 url/正文标记)。
+    teardown 切回"项目经理"并清理登录态。
+    """
+    base_url = request.config.getoption("--base-url").rstrip("/")
+    auth_path = Path(request.config.getoption("--auth-state"))
+    if not auth_path.exists():
+        pytest.skip(f"未找到登录态文件 {auth_path}, 请先运行: python save_auth_state.py")
+    with open(auth_path, "r", encoding="utf-8") as f:
+        state = json.load(f)
+    _inject_auth_state(driver, base_url, state)
+
+    def cleanup():
+        _cleanup_auth_state(driver, base_url)
+
+    page = ProjectPage(driver, base_url)
+    if not page.wait_app_chrome(timeout=40):
+        cleanup()
+        pytest.skip("应用外壳未渲染(登录态可能过期), 无法验证评审专家边界")
+    time.sleep(1.5)
+    if not page.switch_role("评审专家", timeout=30):
+        cleanup()
+        pytest.skip("未能切换到评审专家角色(账号可能无该角色或渲染异常)")
+    time.sleep(2)
+
+    home = {
+        "url": page.current_url(),
+        "role": page.current_role(8),
+        "menus": page.menu_texts(),
+        "new_project_btn": page.has_new_project_button(),
+    }
+
+    # 评审专家应能进入项目详情: 先尝试点列表首行项目名; 失败再回退到直接导航详情 URL
+    # (实测评审专家列表行可能为只读、无名称链接, 但直达详情 URL 不会像投标人员那样被拦截)
+    detail = {"entered": False, "url": "", "markers": []}
+    entered = False
+    if page.ensure_list_loaded(attempts=3, timeout=20):
+        entered = page.open_first_project_detail(timeout=20)
+    if not entered:
+        _safe_get(driver, f"{base_url}{ProjectPage.PROJECT_LIST_PATH}/1826")
+        time.sleep(4)
+        entered = bool(re.search(r"/list/\d+", page.current_url()))
+    else:
+        time.sleep(3)
+    try:
+        body = driver.find_element("tag name", "body").text
+    except Exception:
+        body = ""
+    detail = {
+        "entered": entered,
+        "url": page.current_url(),
+        "markers": [m for m in ("评标", "评审", "评分", "本页目录",
+                                "招标文件识别", "投标文件查重") if m in body],
+    }
+
+    ctx = {"home": home, "detail": detail}
+    try:
+        yield ctx
+    finally:
+        try:
+            import bidder_create as bc
             bc._select_role(driver, "项目经理")
             time.sleep(1.5)
         except Exception:

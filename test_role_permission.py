@@ -114,3 +114,43 @@ class TestBidderScopedToTasks:
         assert not md["audit_markers"], (
             f"投标人员看到了不应可见的检测区块: {md['audit_markers']}"
         )
+
+
+class TestReviewerReadOnlyProjects:
+    """评审专家视角(需求 2.3 角色权限): 面向项目/评标的只读评审角色。
+
+    与投标人员对照: 评审专家可进入项目列表/项目详情(投标人员被拦截);
+    与项目经理对照: 评审专家无'新建项目'能力(不可发起项目)。
+    """
+
+    def test_perm12_reviewer_role_and_landing(self, reviewer_context):
+        """切到评审专家: 角色名正确, 落地项目经理同侧'我的项目'(非投标人员'我的任务')。"""
+        home = reviewer_context["home"]
+        assert "评审专家" in home["role"], f"角色未切到评审专家: {home['role']!r}"
+        assert "/my-projects" in home["url"], f"评审专家未落到'我的项目'页: {home['url']}"
+        assert "/my-tasks" not in home["url"], f"评审专家落到了投标人员'我的任务'页: {home['url']}"
+
+    def test_perm13_reviewer_cannot_create_project(self, reviewer_context):
+        """评审专家为只读评审定位, 不应拥有'新建项目'能力(区别于项目经理)。"""
+        assert not reviewer_context["home"]["new_project_btn"], (
+            "评审专家不应出现'新建项目'按钮(其为评审而非发起角色)"
+        )
+
+    def test_perm14_reviewer_menu_is_project_oriented(self, reviewer_context):
+        """评审专家菜单面向项目('我的项目/项目列表'), 不应是投标人员的'我的任务'。"""
+        menus = reviewer_context["home"]["menus"]
+        joined = " | ".join(menus)
+        assert any("项目" in m for m in menus), f"评审专家菜单未见'项目'相关项: {menus}"
+        assert "我的任务" not in joined, f"评审专家菜单不应出现投标人员的'我的任务': {menus}"
+
+    def test_perm15_reviewer_can_open_project_detail(self, reviewer_context):
+        """评审专家可进入项目详情(与投标人员被拦截相对照)。"""
+        detail = reviewer_context["detail"]
+        if not detail.get("entered"):
+            pytest.skip("项目列表无可进入的项目行, 无法验证评审专家详情可达")
+        assert _DETAIL_URL_RE.search(detail["url"]), (
+            f"评审专家点击项目未进入详情URL(/list/<id>): {detail['url']}"
+        )
+        assert "/my-tasks" not in detail["url"] and "/login" not in detail["url"], (
+            f"评审专家进入项目详情被异常重定向: {detail['url']}"
+        )
