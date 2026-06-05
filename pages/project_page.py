@@ -297,6 +297,46 @@ class ProjectPage:
     def table_headers(self) -> list:
         return [el.text.strip() for el in self.driver.find_elements(*self.TABLE_HEADERS) if el.text.strip()]
 
+    def table_matrix(self) -> dict:
+        """读当前页表格为 {headers:[...], rows:[[cell,...],...]}(JS 原子读取, 规避 stale).
+
+        rows 仅取真实数据行(tr.ant-table-row), 排除 antd 测量/占位行.
+        """
+        js = r"""
+        var tbl = document.querySelector('.ant-table');
+        if(!tbl){return {headers:[], rows:[]};}
+        var headers = Array.prototype.map.call(
+            tbl.querySelectorAll('.ant-table-thead th'),
+            function(t){return (t.innerText||'').trim();});
+        var rows = Array.prototype.map.call(
+            tbl.querySelectorAll('.ant-table-tbody tr.ant-table-row'),
+            function(r){return Array.prototype.map.call(r.querySelectorAll('td'),
+                function(c){return (c.innerText||'').trim();});});
+        return {headers: headers, rows: rows};
+        """
+        try:
+            res = self.driver.execute_script(js)
+        except Exception:
+            res = None
+        if not isinstance(res, dict):
+            return {"headers": [], "rows": []}
+        res.setdefault("headers", [])
+        res.setdefault("rows", [])
+        return res
+
+    def table_rows_as_dicts(self) -> list:
+        """当前页表格按表头映射为 [{表头: 单元格}]; 空表头列以 colN 命名."""
+        m = self.table_matrix()
+        headers = m["headers"]
+        out = []
+        for row in m["rows"]:
+            d = {}
+            for i, cell in enumerate(row):
+                key = headers[i] if i < len(headers) and headers[i] else f"col{i}"
+                d[key] = cell
+            out.append(d)
+        return out
+
     def rows(self):
         return self.driver.find_elements(*self.TABLE_ROWS)
 

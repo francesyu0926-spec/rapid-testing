@@ -402,6 +402,206 @@ def quick_check_detail_page(driver, request):
         cleanup()
 
 
+def _load_list_rows(driver, request, which: str) -> dict:
+    """注入登录态 -> 加载(项目/快检)列表 -> 返回 {headers, rows(dict列表)}; 失败 skip.
+
+    which: 'project' 项目列表 / 'quick' 快检列表. 调用方负责 cleanup(返回 cleanup callable).
+    """
+    base_url = request.config.getoption("--base-url").rstrip("/")
+    auth_path = Path(request.config.getoption("--auth-state"))
+    if not auth_path.exists():
+        pytest.skip(f"未找到登录态文件 {auth_path}, 请先运行: python save_auth_state.py")
+    with open(auth_path, "r", encoding="utf-8") as f:
+        state = json.load(f)
+    _inject_auth_state(driver, base_url, state)
+    page = ProjectPage(driver, base_url)
+    # SPA 路由切换瞬间可能残留另一张表格, 故不仅要等出现数据行, 还要等表头出现该列表的
+    # 签名列(项目列表'开标时间' / 快检列表'创建时间'), 避免读到上一张表的残留数据.
+    sig = "开标时间" if which == "project" else "创建时间"
+    label = "项目" if which == "project" else "快检"
+    m = {"headers": [], "rows": []}
+    for _ in range(5):
+        if which == "project":
+            page.ensure_list_loaded(attempts=2, timeout=25)
+        else:
+            page.ensure_quick_check_loaded(attempts=2, timeout=25)
+        # 等待目标表头签名列出现(最长 ~10s), 应对异步重渲染
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            m = page.table_matrix()
+            if sig in m.get("headers", []) and m.get("rows"):
+                break
+            time.sleep(0.5)
+        if sig in m.get("headers", []) and m.get("rows"):
+            break
+    if sig not in m.get("headers", []) or not m.get("rows"):
+        _cleanup_auth_state(driver, base_url)
+        pytest.skip(f"{label}列表未加载出含'{sig}'列的数据(实得表头 {m.get('headers')})")
+    rows = page.table_rows_as_dicts()
+    return {"headers": m["headers"], "rows": rows, "base_url": base_url}
+
+
+@pytest.fixture(scope="module")
+def project_list_data(driver, request):
+    """项目列表首页数据(module 级, 注入一次): {headers, rows(dict列表)}."""
+    data = _load_list_rows(driver, request, "project")
+    try:
+        yield data
+    finally:
+        _cleanup_auth_state(driver, data["base_url"])
+
+
+@pytest.fixture(scope="module")
+def quick_check_list_data(driver, request):
+    """快检列表首页数据(module 级, 注入一次): {headers, rows(dict列表)}."""
+    data = _load_list_rows(driver, request, "quick")
+    try:
+        yield data
+    finally:
+        _cleanup_auth_state(driver, data["base_url"])
+
+
+@pytest.fixture(scope="module")
+def manager_prebid_detail(driver, request):
+    """项目经理进入某"开标前"项目详情(仅进入, 不要求审查内容渲染), 用于权限边界断言.
+
+    返回 {detail, body, table_count, url}. 无开标前项目或点击未跳转则 skip.
+    与 _enter_project_detail 不同: 本 fixture 不调用 wait_content(开标前对项目经理本就无内容).
+    """
+    base_url = request.config.getoption("--base-url").rstrip("/")
+    auth_path = Path(request.config.getoption("--auth-state"))
+    if not auth_path.exists():
+        pytest.skip(f"未找到登录态文件 {auth_path}, 请先运行: python save_auth_state.py")
+    with open(auth_path, "r", encoding="utf-8") as f:
+        state = json.load(f)
+    _inject_auth_state(driver, base_url, state)
+
+    def cleanup():
+        _cleanup_auth_state(driver, base_url)
+
+    page = ProjectPage(driver, base_url)
+    if not page.ensure_list_loaded(attempts=4, timeout=25):
+        cleanup()
+        pytest.skip("项目列表未加载, 无法验证开标前权限边界")
+    if not page.first_row_status("开标前"):
+        cleanup()
+        pytest.skip("列表首页无'开标前'项目, 无法验证开标前权限边界")
+    if not page.click_row_with_status("开标前", timeout=25):
+        cleanup()
+        pytest.skip("点击'开标前'项目名称未跳转到详情(另一种权限表现, 本用例不覆盖)")
+
+    detail = ProjectDetailPage(driver, base_url)
+    detail.wait_loaded(timeout=25)
+    # 轮询等"开标前"环节内容渲染(招标侧检测项); 详情数据异步加载偶发较慢, 失败再重进一次.
+    prebid_markers = ("招标文件识别", "招标备案识别", "招标成员关系分析", "本页目录")
+    body = ""
+    table_count = 0
+    for attempt in range(2):
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            body = detail.body_text()
+            try:
+                table_count = len(driver.find_elements("css selector", ".ant-table"))
+            except Exception:
+                table_count = 0
+            if any(m in body for m in prebid_markers) or table_count > 0:
+                break
+            time.sleep(1.5)
+        if any(m in body for m in prebid_markers) or table_count > 0:
+            break
+        # 内容未出, 重进一次详情
+        if attempt == 0:
+            page.ensure_list_loaded(attempts=2, timeout=20)
+            if page.first_row_status("开标前"):
+                page.click_row_with_status("开标前", timeout=25)
+                detail.wait_loaded(timeout=25)
+    if not (any(m in body for m in prebid_markers) or table_count > 0):
+        cleanup()
+        pytest.skip("开标前详情内容未渲染(数据异步加载超时), 不做'阶段可见性'断言")
+    ctx = {"detail": detail, "body": body, "table_count": table_count,
+           "url": detail.current_url(), "title": (driver.title or "")}
+    try:
+        yield ctx
+    finally:
+        cleanup()
+
+
+@pytest.fixture(scope="module")
+def bidder_context(driver, request):
+    """切到"投标人员"角色后的会话上下文, 用于投标人员权限边界断言.
+
+    采集:
+      - home: 切到投标人员后的落地 URL / 角色名 / 菜单 / "新建项目"按钮(投标人员本职能力);
+      - manager_list: 投标人员直接导航到项目经理"我的项目/项目列表"后的最终 URL;
+      - manager_detail: 投标人员直接导航到某项目经理项目详情(/list/<id>)后的最终 URL/正文标记/表格数。
+    需求 2.3: 投标人员无权进入项目经理的项目列表/项目详情(检测信息), 会被重定向回"我的任务"。
+    teardown 切回"项目经理"并清理登录态, 避免污染后续用例。
+    """
+    import bidder_create as bc  # 复用实战打磨的角色切换/选择器
+
+    base_url = request.config.getoption("--base-url").rstrip("/")
+    auth_path = Path(request.config.getoption("--auth-state"))
+    if not auth_path.exists():
+        pytest.skip(f"未找到登录态文件 {auth_path}, 请先运行: python save_auth_state.py")
+    with open(auth_path, "r", encoding="utf-8") as f:
+        state = json.load(f)
+    _inject_auth_state(driver, base_url, state)
+
+    def cleanup():
+        _cleanup_auth_state(driver, base_url)
+
+    page = ProjectPage(driver, base_url)
+    if not page.wait_app_chrome(timeout=40):
+        cleanup()
+        pytest.skip("应用外壳未渲染(登录态可能过期), 无法验证投标人员权限边界")
+    time.sleep(2)
+    if not bc.switch_to_bidder(driver):
+        cleanup()
+        pytest.skip("未能切换到投标人员角色(登录态过期或角色渲染异常)")
+
+    def _markers(body):
+        return [m for m in ("本页目录", "投标文件查重", "投标文件校验",
+                            "投标IP校验", "报价规律", "招标文件识别", "招标备案识别")
+                if m in body]
+
+    home = {
+        "url": page.current_url(),
+        "role": page.current_role(8),
+        "menus": page.menu_texts(),
+        "new_project_btn": page.has_new_project_button(),
+    }
+
+    # 投标人员尝试直接进入项目经理"项目列表"
+    driver.get(f"{base_url}{ProjectPage.PROJECT_LIST_PATH}")
+    time.sleep(4)
+    manager_list = {"url": page.current_url()}
+
+    # 投标人员尝试直接进入某项目经理项目详情(/list/<id>; 任一 /my-projects/* 对投标人员均应被拦截)
+    driver.get(f"{base_url}{ProjectPage.PROJECT_LIST_PATH}/1826")
+    time.sleep(4)
+    try:
+        body = driver.find_element("tag name", "body").text
+    except Exception:
+        body = ""
+    manager_detail = {
+        "url": page.current_url(),
+        "audit_markers": _markers(body),
+        "audit_tables": len(driver.find_elements("css selector", ".ant-table")),
+        "body_len": len(body),
+    }
+
+    ctx = {"home": home, "manager_list": manager_list, "manager_detail": manager_detail}
+    try:
+        yield ctx
+    finally:
+        try:
+            bc._select_role(driver, "项目经理")
+            time.sleep(1.5)
+        except Exception:
+            pass
+        cleanup()
+
+
 @pytest.fixture(scope="module")
 def consistency_context(driver, request):
     """L2 自洽性上下文: 进某"已完成"快检项目详情, 产出"上传文件 oracle + 详情展示文本".

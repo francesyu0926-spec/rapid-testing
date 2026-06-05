@@ -59,12 +59,16 @@ class TestDetailCrossSection:
         d = project_detail_page
         ip_units, ip_ok = _section_units(d, "投标IP校验")
         cnt_units, cnt_ok = _section_units(d, "投标次数预警")
+        file_units, file_ok = _section_units(d, "投标文件校验")
         mtx_units, mtx_ok = _matrix_units(d, "投标文件查重")
+        hw_units, hw_ok = _matrix_units(d, "投标笔迹校验")
 
         present = [(n, u) for n, u, ok in
                    (("投标IP校验", ip_units, ip_ok),
                     ("投标次数预警", cnt_units, cnt_ok),
-                    ("投标文件查重", mtx_units, mtx_ok)) if ok]
+                    ("投标文件校验", file_units, file_ok),
+                    ("投标文件查重", mtx_units, mtx_ok),
+                    ("投标笔迹校验", hw_units, hw_ok)) if ok]
         if len(present) < 2:
             pytest.skip(f"有数据的可比对区块不足2个(实得{[n for n,_ in present]}), 无法做跨区块自洽比对")
 
@@ -78,13 +82,14 @@ class TestDetailCrossSection:
     def test_bidder_count_consistent_across_sections(self, project_detail_page):
         d = project_detail_page
         sizes = {}
-        for name in ("投标IP校验", "投标次数预警"):
+        for name in ("投标IP校验", "投标次数预警", "投标文件校验"):
             units, ok = _section_units(d, name)
             if ok:
                 sizes[name] = len(units)
-        mtx_units, ok = _matrix_units(d, "投标文件查重")
-        if ok:
-            sizes["投标文件查重"] = len(mtx_units)
+        for name in ("投标文件查重", "投标笔迹校验"):
+            units, ok = _matrix_units(d, name)
+            if ok:
+                sizes[name] = len(units)
         if len(sizes) < 2:
             pytest.skip(f"有数据的区块不足2个(实得{list(sizes)}), 无法比对家数")
         uniq = set(sizes.values())
