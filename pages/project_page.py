@@ -429,6 +429,46 @@ class ProjectPage:
         """列表中是否存在指定状态(开标前/开标中/...)的项目行."""
         return any(status in r.text for r in self.rows())
 
+    def list_next_page(self, timeout: int = 10) -> bool:
+        """项目列表翻到下一页. 已是最后一页(next 禁用)或无分页时返回 False.
+
+        通过比较翻页前后首行文本是否变化确认生效(数据异步重渲染).
+        """
+        nexts = self.driver.find_elements(*self.PAGINATION_NEXT)
+        if not nexts:
+            return False
+        nxt = nexts[0]
+        cls = nxt.get_attribute("class") or ""
+        if "disabled" in cls or nxt.get_attribute("aria-disabled") == "true":
+            return False
+        before = ""
+        m = self.table_matrix()
+        if m["rows"]:
+            before = " ".join(m["rows"][0])
+        try:
+            self.driver.execute_script("arguments[0].click();", nxt)
+        except Exception:
+            return False
+        end = time.time() + timeout
+        while time.time() < end:
+            m = self.table_matrix()
+            if m["rows"] and " ".join(m["rows"][0]) != before:
+                return True
+            time.sleep(0.5)
+        return False
+
+    def find_status_across_pages(self, status: str, max_pages: int = 12) -> bool:
+        """在项目列表逐页查找含指定状态的行; 找到则停在该页并返回 True.
+
+        用于规避"目标状态项目不在首页"导致的误 skip(列表按时间排序、数据漂移).
+        """
+        for _ in range(max_pages):
+            if self.first_row_status(status) or self.row_key_with_status(status):
+                return True
+            if not self.list_next_page(timeout=10):
+                return False
+        return self.first_row_status(status) or bool(self.row_key_with_status(status))
+
     def open_first_project_detail(self, timeout: int = 12) -> bool:
         """点击项目列表首行"项目名称"链接进入项目详情, 返回是否进入详情(URL=/list/<id>).
 

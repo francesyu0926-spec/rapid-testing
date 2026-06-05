@@ -203,6 +203,21 @@ return out;
           - headers: 表头文本(可能末列为空, 调用方自行过滤)
           - rows: 真实数据行(已排除 antd 测量/占位行)
         """
+        # 详情页区块表格为滚动懒加载: 先把该区块标题滚到视图中触发渲染, 再抓取
+        try:
+            self.driver.execute_script(
+                """
+                var name=arguments[0];
+                var all=Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,div,span,p'));
+                for(var i=0;i<all.length;i++){var t=(all[i].innerText||'').trim();
+                  if(t===name||(t.indexOf(name)===0&&t.length<name.length+8)){
+                    all[i].scrollIntoView({block:'center'});break;}}
+                """,
+                name,
+            )
+            time.sleep(0.6)
+        except Exception:
+            pass
         if settle:
             time.sleep(settle)
         try:

@@ -260,6 +260,24 @@ class TestQuickCheckDetail:
         )
         assert not missing, f"快检详情缺少审查区块: {missing}"
 
+    def test_qc05_all_sections_render_tables(self, quick_check_detail_page):
+        """QC-05: 8 个检测区块不仅标题存在, 且各自真实渲染出表格(标题→紧邻表格)."""
+        d = quick_check_detail_page
+        missing_table = []
+        for name in d.QUICK_CHECK_SECTIONS:
+            tb = d.section_table(name)
+            if not (tb.get("found") and tb.get("has_table")):
+                missing_table.append(name)
+        assert not missing_table, f"以下快检检测区块未渲染表格(仅标题无表): {missing_table}"
+
+    def test_qc05_audit_table_count(self, quick_check_detail_page):
+        """QC-05: 快检详情渲染的审查表格数应覆盖全部检测区块(>= 区块数)."""
+        d = quick_check_detail_page
+        tables = len(d.driver.find_elements("css selector", ".ant-table"))
+        assert tables >= len(d.QUICK_CHECK_SECTIONS), (
+            f"快检详情表格数 {tables} 少于检测区块数 {len(d.QUICK_CHECK_SECTIONS)}"
+        )
+
     def test_record_audit_headers(self, quick_check_detail_page):
         """用例41: 招标备案识别表头应含 一致数量/不一致数量/缺项数量(需求书 3.2.2 招标备案一致)."""
         assert quick_check_detail_page.has_headers(

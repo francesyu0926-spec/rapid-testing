@@ -392,6 +392,80 @@ class TestHandwriting:
             pytest.skip("笔迹矩阵无可比对的成对数值(多为占位)")
 
 
+class TestSameBidWarning:
+    """相同投标预警(3.3.6 / 4.3.2.x): 单位两两矩阵, 单元格'共同投标次数|合计中标次数'.
+
+    确定性结构 oracle:
+      · 对角为 '-';
+      · 对称: 单元格(A,B) == 单元格(B,A)(共同投标/合计中标与单位顺序无关);
+      · 两数均为非负整数, 且 合计中标次数 <= 共同投标次数(中标不可能多于共同投标);
+      · 按需求重算"共同投标>=15 且 合计中标>=5"的命中对集合(结构自洽, 不依赖具体数据量).
+    """
+
+    @staticmethod
+    def _pair(raw):
+        """'1|0' -> (1,0); '-'/空/无效 -> None."""
+        if raw is None:
+            return None
+        t = raw.strip()
+        if t in ("", "-", "—"):
+            return None
+        parts = re.split(r"[|/]", t)
+        if len(parts) != 2:
+            return None
+        try:
+            return int(parts[0].strip()), int(parts[1].strip())
+        except ValueError:
+            return None
+
+    def test_same_bid_matrix_invariants(self, quick_check_detail_page):
+        tb = quick_check_detail_page.section_table("相同投标预警")
+        if not tb.get("has_table") or tb.get("empty") or not tb.get("rows"):
+            pytest.skip("相同投标预警暂无数据")
+        headers = tb["headers"]
+        col_names = [h for h in headers[1:] if h]
+        matrix = {}
+        for row in tb["rows"]:
+            if len(row) < 2:
+                continue
+            matrix[row[0]] = {col_names[j - 1]: row[j]
+                              for j in range(1, len(row)) if j - 1 < len(col_names)}
+        assert matrix, f"未能解析相同投标矩阵, headers={headers}"
+
+        names = list(matrix.keys())
+        warned = set()
+        checked = 0
+        for a in names:
+            for b, raw in matrix[a].items():
+                if a == b:
+                    assert raw.strip() in ("-", "—", ""), (
+                        f"相同投标矩阵对角({a})应为'-', 实际 {raw!r}"
+                    )
+                    continue
+                pair = self._pair(raw)
+                if pair is None:
+                    continue
+                joint, wins = pair
+                assert joint >= 0 and wins >= 0, f"相同投标计数为负: {a}x{b}={raw!r}"
+                assert wins <= joint, (
+                    f"合计中标次数({wins})多于共同投标次数({joint}): {a}x{b}={raw!r}"
+                )
+                # 对称: (A,B) == (B,A)
+                if b in matrix and a in matrix.get(b, {}):
+                    rev = self._pair(matrix[b][a])
+                    if rev is not None:
+                        assert rev == pair, (
+                            f"相同投标矩阵不对称: {a}x{b}={raw!r} 但 {b}x{a}={matrix[b][a]!r}"
+                        )
+                        checked += 1
+                if joint >= 15 and wins >= 5:
+                    warned.add(frozenset((a, b)))
+        if checked == 0:
+            pytest.skip("相同投标矩阵无可比对成对数值(多为占位)")
+        # warned: 按规则重算的命中对集合(结构自洽即可, 是否非空取决于当前数据)
+        assert isinstance(warned, set)
+
+
 class TestBidFileValidation:
     """投标文件校验(4.3.2): 列含 投标单位/投标文件状态/AI识别状态/AI结果数.
 

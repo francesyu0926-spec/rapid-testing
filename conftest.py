@@ -328,9 +328,9 @@ def _enter_project_detail(driver, request, status, content_markers):
     if not page.ensure_list_loaded(attempts=4, timeout=20):
         cleanup()
         pytest.skip("项目列表表格未加载, 无法进入项目详情")
-    if not page.row_key_with_status(status):
+    if not page.find_status_across_pages(status):
         cleanup()
-        pytest.skip(f"项目列表中无'{status}'项目, 无法进入对应详情")
+        pytest.skip(f"项目列表(全部分页)中无'{status}'项目, 无法进入对应详情")
     if not page.click_row_with_status(status, timeout=20):
         cleanup()
         pytest.skip(f"点击'{status}'项目名称未能进入详情页")
@@ -484,9 +484,9 @@ def manager_prebid_detail(driver, request):
     if not page.ensure_list_loaded(attempts=4, timeout=25):
         cleanup()
         pytest.skip("项目列表未加载, 无法验证开标前权限边界")
-    if not page.first_row_status("开标前"):
+    if not page.find_status_across_pages("开标前"):
         cleanup()
-        pytest.skip("列表首页无'开标前'项目, 无法验证开标前权限边界")
+        pytest.skip("项目列表(全部分页)无'开标前'项目, 无法验证开标前阶段可见性")
     if not page.click_row_with_status("开标前", timeout=25):
         cleanup()
         pytest.skip("点击'开标前'项目名称未跳转到详情(另一种权限表现, 本用例不覆盖)")

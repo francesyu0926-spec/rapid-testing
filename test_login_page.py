@@ -13,7 +13,10 @@
     不断言登录成功. 登录后功能请用"先扫码一次, 存 Cookie 复用"的方式另测.
 """
 
+import time
+
 import pytest
+from selenium.webdriver.support.ui import WebDriverWait
 
 from pages.login_page import LoginPage
 
@@ -196,6 +199,65 @@ class TestAccountLoginSubmit:
         import time
         time.sleep(3)
         assert "/login" in login_page.driver.current_url, "未通过验证码不应跳转登录成功"
+
+
+@pytest.mark.ui
+class TestPhoneLoginValidation:
+    """手机登录表单校验 (SM-04, 需求 3.1 / 4.1; 无需真实短信即可验证)."""
+
+    def test_sm04_phone_empty_submit_required_errors(self, login_page):
+        """SM-04a: 手机登录空提交, 应提示手机号与验证码必填, 不跳转."""
+        login_page.open()
+        login_page.click_tab("phone")
+        # antd 在 React 重渲染期单次点击偶发不触发校验, 重试至出现提示
+        errors = []
+        for _ in range(3):
+            login_page.driver.find_element(*LoginPage.LOGIN_BUTTON).click()
+            errors = login_page.wait_form_errors(timeout=5)
+            if errors:
+                break
+            time.sleep(0.5)
+        assert any("手机号" in e for e in errors), f"应提示手机号必填, 实际: {errors}"
+        assert any("验证码" in e for e in errors), f"应提示验证码必填, 实际: {errors}"
+        assert "/login" in login_page.driver.current_url
+
+    def test_sm04_invalid_phone_format_rejected(self, login_page):
+        """SM-04b: 输入非法手机号点"获取验证码", 应提示手机号格式错误, 不发送/不跳转."""
+        login_page.open()
+        login_page.click_tab("phone")
+        login_page.fill_phone("12345")
+        errors = []
+        for _ in range(3):
+            login_page.driver.find_element(*LoginPage.GET_CODE_BUTTON).click()
+            errors = login_page.wait_form_errors(timeout=5)
+            if any("格式" in e for e in errors):
+                break
+            time.sleep(0.5)
+        assert any("格式" in e for e in errors), f"应提示手机号格式错误, 实际: {errors}"
+        assert "/login" in login_page.driver.current_url
+
+
+@pytest.mark.smoke
+class TestSessionGuard:
+    """会话守卫 (SM-02, 需求 2.3 / 4.1): 未登录/失效登录态访问业务页应被拦截到登录页."""
+
+    def test_sm02_unauthenticated_access_redirects_to_login(self, login_page):
+        """SM-02: 清除登录态后直接访问业务页, 应重定向到 /login 且携带回跳目标."""
+        d = login_page.driver
+        d.get(login_page.base_url + "/")
+        try:
+            d.delete_all_cookies()
+        except Exception:
+            pass
+        try:
+            d.execute_script("window.localStorage.clear();window.sessionStorage.clear();")
+        except Exception:
+            pass
+        d.get(login_page.base_url + "/ai/my-projects/list")
+        WebDriverWait(d, 15).until(lambda x: "/login" in x.current_url)
+        url = d.current_url
+        assert "/login" in url, f"未登录访问业务页未被拦截: {url}"
+        assert "redirect" in url, f"登录重定向未携带回跳目标: {url}"
 
 
 @pytest.mark.ui
