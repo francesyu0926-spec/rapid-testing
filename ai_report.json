@@ -1,0 +1,153 @@
+{
+  "projects": [
+    {
+      "id": "P1-COMPLIANCE",
+      "name": "AUTO-GT P1 业务合规快检（市政施工）",
+      "files": [
+        {
+          "unit": "合规甲建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 1 合规甲建设工程有限公司 已上传 已完成 合格 查看\n[投标文件查重] 合规甲建设工程有限公司 - 0.0% 0.0% 0.0% 0.0% 0.0%",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "合规乙建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 2 合规乙建设工程有限公司 已上传 已完成 合格 查看\n[投标文件查重] 合规乙建设工程有限公司 0.0% - 0.0% 0.0% 0.0% 0.0%\n[投标笔迹校验] 合规乙建设工程有限公司 - 1|1 1|1 1|1",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "资质硬伤丙建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 3 资质硬伤丙建设有限公司 已上传 已完成 合格 查看\n[投标文件查重] 资质硬伤丙建设有限公司 0.0% 0.0% - 0.0% 0.0% 0.0%",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "财务不达标丁建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 4 财务不达标丁建设有限公司 已上传 已完成 合格 查看\n[投标文件查重] 财务不达标丁建设有限公司 0.0% 0.0% 0.0% - 0.0% 0.0%\n[投标笔迹校验] 财务不达标丁建设有限公司 1|1 - 1|1 1|1",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "报价错误戊建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 5 报价错误戊建设有限公司 已上传 已完成 合格 查看\n[投标文件查重] 报价错误戊建设有限公司 0.0% 0.0% 0.0% 0.0% - 0.0%\n[投标笔迹校验] 报价错误戊建设有限公司 1|1 1|1 - 1|1",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "响应缺失己建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 6 响应缺失己建设有限公司 已上传 已完成 合格 查看\n[投标文件查重] 响应缺失己建设有限公司 0.0% 0.0% 0.0% 0.0% 0.0% -\n[投标笔迹校验] 响应缺失己建设有限公司 1|1 1|1 1|1 -",
+          "items": [],
+          "_full_blob_contains_unit": true
+        }
+      ],
+      "_blob_len": 1871
+    },
+    {
+      "id": "P2-AIATTACK",
+      "name": "AUTO-GT P2 AI对抗快检（市政施工）",
+      "files": [
+        {
+          "unit": "大海捞针庚建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 1 大海捞针庚建设有限公司 已上传 已完成 合格 查看",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "提示注入辛建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 2 提示注入辛建设有限公司 已上传 已完成 合格 查看",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "排版陷阱壬建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 3 排版陷阱壬建设有限公司 已上传 已完成 合格 查看",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "微缩繁体癸建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 4 微缩繁体癸建设有限公司 已上传 已完成 合格 查看",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "加密文件子建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 5 加密文件子建设有限公司 已上传 校验失败 合格 查看",
+          "items": [],
+          "_full_blob_contains_unit": true
+        }
+      ],
+      "_blob_len": 1144
+    },
+    {
+      "id": "P3-COLLUSION",
+      "name": "AUTO-GT P3 围标串标快检（市政施工）",
+      "files": [
+        {
+          "unit": "围标A建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 1 围标A建设工程有限公司 已上传 已完成 合格 查看\n[投标文件查重] 围标A建设工程有限公司 - 0.0% 0.0% 0.0% 0.0%",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "围标B建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 2 围标B建设工程有限公司 已上传 已完成 合格 查看\n[投标文件查重] 围标B建设工程有限公司 0.0% - 0.0% 0.0% 0.0%",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "围标C建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 3 围标C建设工程有限公司 已上传 已完成 合格 查看\n[投标文件查重] 围标C建设工程有限公司 0.0% 0.0% - 0.0% 0.0%",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "联合体D建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 4 联合体D建设有限公司 已上传 已完成 合格 查看\n[投标文件查重] 联合体D建设有限公司 0.0% 0.0% 0.0% - 0.0%",
+          "items": [],
+          "_full_blob_contains_unit": true
+        },
+        {
+          "unit": "关联E建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "[投标文件校验] 5 关联E建设有限公司 已上传 已完成 合格 查看\n[投标文件查重] 关联E建设有限公司 0.0% 0.0% 0.0% 0.0% -",
+          "items": [],
+          "_full_blob_contains_unit": true
+        }
+      ],
+      "_blob_len": 1484
+    }
+  ]
+}

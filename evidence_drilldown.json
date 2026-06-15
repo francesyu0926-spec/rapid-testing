@@ -1,0 +1,461 @@
+{
+  "projects": [
+    {
+      "id": "P1-COMPLIANCE",
+      "name": "AUTO-GT P1 业务合规快检（市政施工）",
+      "files": [
+        {
+          "unit": "合规甲建设工程有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1998/bidding-task/1117",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "合规乙建设工程有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1998/bidding-task/1118",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "资质硬伤丙建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1998/bidding-task/1119",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "财务不达标丁建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1998/bidding-task/1120",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "报价错误戊建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1998/bidding-task/1121",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "响应缺失己建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1998/bidding-task/1122",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P2-AIATTACK",
+      "name": "AUTO-GT P2 AI对抗快检（市政施工）",
+      "files": [
+        {
+          "unit": "大海捞针庚建设有限公司",
+          "error": "no head"
+        },
+        {
+          "unit": "提示注入辛建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1999/bidding-task/1125",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "排版陷阱壬建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1999/bidding-task/1126",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "微缩繁体癸建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1999/bidding-task/1127",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "加密文件子建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/1999/bidding-task/1128",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P3-COLLUSION",
+      "name": "AUTO-GT P3 围标串标快检（市政施工）",
+      "files": [
+        {
+          "unit": "围标A建设工程有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/2000/bidding-task/1130",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "围标B建设工程有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/2000/bidding-task/1131",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "围标C建设工程有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/2000/bidding-task/1132",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "联合体D建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/2000/bidding-task/1133",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        },
+        {
+          "unit": "关联E建设有限公司",
+          "sub_url": "https://www.detection.shanxiguandian.com/ai/my-projects/quick-check/2000/bidding-task/1134",
+          "unmet_total": 0,
+          "rows_total": 0,
+          "blocks": {
+            "投标规范校验": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "报价评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            },
+            "技术方案评估": {
+              "counts": {},
+              "empty": true,
+              "headers": [],
+              "panel": "",
+              "rows": []
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

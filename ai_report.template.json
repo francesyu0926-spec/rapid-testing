@@ -1,0 +1,157 @@
+{
+  "projects": [
+    {
+      "id": "P1-COMPLIANCE",
+      "files": [
+        {
+          "unit": "合规甲建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "合规乙建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "资质硬伤丙建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "财务不达标丁建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "报价错误戊建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "响应缺失己建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "P2-AIATTACK",
+      "files": [
+        {
+          "unit": "大海捞针庚建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "提示注入辛建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "排版陷阱壬建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "微缩繁体癸建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "加密文件子建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "P3-COLLUSION",
+      "files": [
+        {
+          "unit": "围标A建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "围标B建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "围标C建设工程有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "联合体D建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "关联E建设有限公司",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "STRESS",
+      "files": [
+        {
+          "unit": "STRESS-超大PDF",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "STRESS-docx",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        },
+        {
+          "unit": "STRESS-zip",
+          "verdict": "",
+          "matched_codes": [],
+          "text": "",
+          "items": []
+        }
+      ]
+    }
+  ]
+}
